@@ -108,7 +108,7 @@
                       <img src="/img/{{userObj.photo}}" alt="">{{userObj.name}}
                     </a>
                     <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown">
-                      <a class="dropdown-item"  href="/admin/myAccount"> Profile</a>
+                      <a class="dropdown-item"  href="/admin/myAccount" name="profile"> Profile</a>
                         {{!-- <a class="dropdown-item"  href="javascript:;">
                           <span class="badge bg-red pull-right">50%</span>
                           <span>Settings</span>
@@ -318,7 +318,7 @@
                   <th scope="col">STT</th>
                   <th scope="col">Tên</th>
                   <th scope="col">Thời gian</th>
-                  <th scope="col">Chuyển đổi</th>
+                  <th scope="col">Phát hiện bệnh</th>
                 </tr>
               </thead>
               <tbody>
@@ -346,8 +346,8 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                           </div>
                           <div class="modal-body">
-                            <img src="/uploads/{{this.photo}}" class="rounded mx-auto d-block" alt="..." width="200" height="200" />
-                            {{this.text}}
+                            <img src="/uploads/{{this.photo}}" class="rounded mx-auto d-block" alt="..." width="500" height="500" />
+                            <img  src="outputs/{{this.photo}}" class="rounded mx-auto d-block" alt="Không phát hiện bệnh" width="600" height="600" />
                           </div>
                           <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>

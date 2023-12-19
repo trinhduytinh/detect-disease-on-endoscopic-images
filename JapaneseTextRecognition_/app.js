@@ -6,10 +6,13 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const handlebars = require('express-handlebars').engine;
 const bodyParser = require('body-parser');
-
+const fileUploadController = require('./controllers/fileUploadController');
+const { eventEmitter } = require('./controllers/fileUploadController');
 // const multer = require('multer');
-
+// Middleware để xử lý dữ liệu JSON từ yêu cầu POST
+app.use(bodyParser.json());
 const { spawn } = require('child_process');
+
 
 
 const userRouter = require('./routes/userRoutes');
@@ -36,55 +39,48 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(cookieParser());
 
+// Endpoint mới để lấy dữ liệu mới
+// app.post('/api/getNewData', (req, res) => {
+//     const newData = req.body.newData;
+//     // Xử lý dữ liệu mới ở đây nếu cần
+//     // ...
+//     console.log("phia ben appjs:", newData);
 
-// app.use(cors());
-
-// app.use((req, res, next) =>{
-//   // console.log(req.cookies);
-//   next();
-// })
-
-// app.use(cors({
-//     origin: 'http://127.0.0.1:5500',
-//     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-//     credentials: true, // Cho phép sử dụng cookies hoặc các thông tin xác thực
-//   }));
-
-// app.use((req, res, next) => {
-//     res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5500');
-//     next();
-//   });
-
-// /////////////////////////////////////////////////////////////////////
-//   // Thiết lập Multer cho việc tải lên tệp
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, 'uploads/'); // Đặt thư mục tải lên
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-//   },
+//     // Trả về dữ liệu mới cho máy khách
+//     res.json(newData);
 // });
 
+app.post('/api/getNewData', (req, res) => {
+  const newData = req.body.newData;
+  console.log("phia ben appjs:", newData);
 
-// const upload = multer({ storage });
+  // Gửi sự kiện cho tất cả các máy khách đang lắng nghe
+  eventEmitter.emit('newData', newData);
 
-// // Phục vụ tệp tĩnh từ thư mục 'public' (ví dụ: HTML, CSS, JavaScript)
-// app.use(express.static('public'));
+  // Trả về dữ liệu mới cho máy khách
+  res.json(newData);
+});
 
-// // Xác định một tuyến đường để xử lý việc tải lên tệp
-// app.post('/file-upload', upload.array('file', 5), (req, res) => {
-//   // Dạng tệp đã tải lên nằm trong req.files
-//   const uploadedFiles = req.files;
-//   // console.log(req.files[0].filename);
-//   if (!uploadedFiles || uploadedFiles.length === 0) {
-//     return res.status(400).json({ message: 'No files uploaded.' });
-//   }
+// REST API để xác định kết nối SSE
+app.get('/api/sse', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
 
-//   // Xử lý tệp đã tải lên ở đây (ví dụ: lưu vào cơ sở dữ liệu, xử lý, vv.)
-//   // Phản hồi thành công
-//   res.status(200).json({ message: 'Files uploaded successfully.' });
-// });
+  // Lắng nghe sự kiện 'newData' và gửi dữ liệu mới khi có sự kiện
+  const newDataListener = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  eventEmitter.on('newData', newDataListener);
+
+  // Đóng kết nối khi máy khách ngắt kết nối
+  req.on('close', () => {
+    eventEmitter.off('newData', newDataListener);
+    res.end();
+  });
+});
+
 
 // Route
 app.use('/', userRouter);

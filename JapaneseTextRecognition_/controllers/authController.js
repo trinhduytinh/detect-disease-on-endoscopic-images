@@ -1,7 +1,7 @@
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const util = require('util');
-
+const fileUploadController = require('./fileUploadController.js');
 const signToken = id => {
     return jwt.sign({ id: id}, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN
@@ -115,11 +115,37 @@ exports.admin = async (req, res, next) => {
 }
 
 
+// Controller home
+// exports.home = (req, res, next) => {
+//     const userObj = req.user.toObject();
+
+//     console.log('Headers sent:', res.headersSent);
+//     // Lắng nghe sự kiện khi kết nối đóng
+//     const connectionClosedListener = (dataToNext) => {
+//         console.log('Event render1:', dataToNext);
+
+//         // Chỉ gọi res.render nếu header chưa được gửi
+//         if (!res.headersSent) {
+//             res.render('viewUser', { userObj, record: dataToNext });
+//             console.log('Event render2:', dataToNext);
+//         } else {
+//             console.log('Headers were already sent; handle accordingly.');
+//         }
+//     };
+
+//     // Sử dụng 'once' để chỉ gọi sự kiện một lần
+//     fileUploadController.eventEmitter.once('connectionClosed', connectionClosedListener);
+
+//     // Trong trường hợp không có dữ liệu nào
+//     if (!res.headersSent) {
+//         res.render('viewUser', { userObj, record: null });
+//     }
+// };
+
 exports.home = (req, res, next) => {
     const userObj = req.user.toObject();
     res.render('viewUser', { userObj });
-    // res.render('test');
-}
+};
 
 exports.login1 = (req, res, next) => {
     res.render('login');

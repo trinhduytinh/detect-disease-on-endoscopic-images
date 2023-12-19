@@ -1,7 +1,9 @@
 const Upload = require('../models/uploadHistoryModel');
-
+const EventEmitter = require('events');
+const eventEmitter = new EventEmitter();    
 const multer = require('multer');
 const path = require('path');
+const axios = require('axios');
 // const { spawn } = require('child_process');
 
 // Asynchronous network API module
@@ -46,61 +48,12 @@ exports.test = (req, res, next) => {
     res.send('abc');
 }
 
-// exports.convert = (req, res, next) => { 
-//     const imageName = req.files[0].filename;
-//     const imagePath = path.join(__dirname, '..', 'uploads', imageName).replace(/\\/g, '/');
-//     // console.log(imagePath);
-
-//     var client = new net.Socket();
-//     client.connect(2021, "localhost", function () {
-//         console.log('Connected///////////////////////');
-//         // Create stream for log file    
-//         var logfile = fs.createWriteStream('client.log', { flags: 'a' });
-//         // Callback function when there is error
-//         logfile.on('error', function (err) {
-//             console.log("Log file: ERROR: " + err);
-//         });
-
-//         // Forward received data to log file
-//         client.pipe(logfile);
-
-//         const imageBuffer = fs.readFileSync(imagePath);
-//         const base64Image = imageBuffer.toString('base64');
-//         // console.log('Original image size:', imageBuffer.length, 'bytes');
-//         // console.log('Base64 image size:', base64Image.length, 'characters');
-
-//         const dataToSend = base64Image + '===Base64ImageEndMarker===';
-//         client.write(dataToSend);
-
-//         //Đóng kết nối sau khi hoàn thành việc gửi ảnh
-//         //  client.end();
-//     });
-
-//     // Callback function when data arrives
-//     var testdata = '';
-//     client.on('data', function (data) {
-//         console.log('Received: ' + `${data}`.toString('utf-8'));
-//         testdata = `${data}`.toString('utf-8');
-//         // Kill client after server's response
-//         client.destroy();
-//     });
-
-//     // Callback function when client disconnected
-//     client.on('close', function () {
-//         console.log('Connection closed');
-
-//         req.photo = imageName;
-//         req.text = testdata;
-
-//         next();
-//     });
-// }
-
 exports.convert = (req, res, next) => {
     var i = 0;
     var dataToNext = [];
     const imageFiles = req.files;
     const client = new net.Socket();
+
     client.connect(2021, "localhost", function () {
         console.log('Connected');
         imageFiles.forEach((imageFile, index) => {
@@ -109,43 +62,111 @@ exports.convert = (req, res, next) => {
             const base64Image = imageBuffer.toString('base64');
             const dataToSend = base64Image + `${imageFiles[index].filename}`;
             client.write(dataToSend);
-            //Đóng kết nối sau khi hoàn thành việc gửi ảnh   =>KHÔNG nhận dc data
-            // if (index === imageFiles.length - 1) {
-            //     client.end();
-            // }
         });
     });
 
     // Callback function when data arrives
     client.on('data', function (data) {
         i++;
-        // console.log(`Received from server for image: ${data.toString('utf-8')}`);
         const resData = JSON.parse(data.toString('utf-8'));
         dataToNext.push(resData)
-        console.log(`${i} Received from server for image: ${resData.fileName} --- ${resData.result}`);
+        console.log(`${i} Received from server for image: ${resData.fileName}`);
         if (i === imageFiles.length) {
             client.end();
             console.log('-----------end-----------');
+
+            // Gửi yêu cầu đến endpoint mới để lấy dữ liệu mới
+            axios.post('http://localhost:80/api/getNewData', { newData: dataToNext })
+                .then(response => {
+                    console.log('New data fetched:', response.data);
+
+                    // Kiểm tra xem response.data có giá trị không
+                    if (response.data) {
+                        // Kiểm tra xem response.data có phải là mảng không
+                        if (Array.isArray(response.data)) {
+                            // Thực hiện các thao tác với mỗi phần tử của mảng
+                            response.data.forEach((item) => {
+                                // In dữ liệu không bao gồm giá trị 'result'
+                                console.log(`Received data for image: ${item.fileName}`);
+                            });
+                        } else {
+                            // Xử lý trường hợp response.data không phải là mảng
+                            console.error('Invalid data format. Expected an array.');
+                        }
+                    } else {
+                        // Xử lý trường hợp response.data là undefined
+                        console.error('No data received.');
+                    }
+
+                    // Phát sự kiện connectionClosed với dữ liệu mới
+                    eventEmitter.emit('connectionClosed', response.data);
+
+                    // Gọi next() ở đây để chắc chắn rằng tất cả công việc đã hoàn thành trước khi kết thúc middleware
+                    next();
+                })
+                .catch(error => {
+                    console.error('Error fetching new data:', error);
+                    next();
+                });
         }
     });
-    // Callback function when client disconnected
-    client.on('close', function () {
-        console.log('Connection closed');
-        req.resData = dataToNext;
-        next();
-    });
+
+   // Sự kiện được kích hoạt khi kết nối đóng
+   client.on('close', function () {
+    console.log('Connection closed');
+    // Không cần phải đợi đến khi nhận được dữ liệu mới để thông báo rằng kết nối đã đóng
+    // Di chuyển phần này ra khỏi sự kiện 'close'
+    console.log('Connection closed');
+    eventEmitter.emit('connectionClosed');
+});
+
+    // Đặt biến để kiểm soát việc gửi phản hồi
+    let isResponseSent = false;
+
+    // Đặt sự kiện 'connectionClosed' ở đây
+    eventEmitter.on('connectionClosed', (data) => {
+        console.log('Connection closed. Data:', data);
+        console.log("Kiem tra file: ", isResponseSent);
+        // Kiểm tra xem đã gửi phản hồi chưa
+        if (!isResponseSent && data) {
+          // Gửi dữ liệu đến client thông qua REST API
+          res.json(data);
+      
+          // Đặt biến để đánh dấu là đã gửi phản hồi
+          isResponseSent = true;
+        }
+      });
+
+    // Đảm bảo gọi next() sau khi đã xử lý tất cả các công việc
+    next();
 }
 
+//     exports.show = (req, res, next) => {
+//         // console.log('-->', req.resData)
+//         req.resData.forEach(data => {
+//             const userId = req.user.id;
+//             const photo = data.fileName;
+//             const text = data.result;
+//             const upload = Upload.create({
+//                 user: userId,
+//                 photo,
+//                 text
+//             });
+//         });
+// }
 exports.show = (req, res, next) => {
-    // console.log('-->', req.resData)
-    req.resData.forEach(data => {
-        const userId = req.user.id;
-        const photo = data.fileName;
-        const text = data.result;
-        const upload = Upload.create({
-            user: userId,
-            photo,
-            text
+    if (req.resData) {
+        req.resData.forEach(data => {
+            const userId = req.user.id;
+            const photo = data.fileName;
+            const text = data.result;
+            const upload = Upload.create({
+                user: userId,
+                photo,
+                text
+            });
         });
-    });
+    }
+    // Rest of your code...
 }
+exports.eventEmitter = eventEmitter; // Xuất eventEmitter
