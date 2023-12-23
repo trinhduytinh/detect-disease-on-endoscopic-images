@@ -27,7 +27,7 @@ router.post('/updatePassword', authController.protect, userController.updatePass
 
 // router.post('/file-upload', authController.protect, authController.restrictTo('user'), userController.upload);
 // router.post('/convert', authController.protect, authController.restrictTo('user'), userController.covert);
-router.post('/getget', authController.protect, fileUploadController.test);
+// router.post('/getget', authController.protect, fileUploadController.test);
 router.get('/get_history', authController.protect, authController.restrictTo('user') , userController.getHistory);
 router.get('/admin/get_history', authController.protect, authController.restrictTo('admin') , userController.getAllHistory)
 

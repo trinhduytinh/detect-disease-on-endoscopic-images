@@ -54,16 +54,20 @@ exports.convert = (req, res, next) => {
     const imageFiles = req.files;
     const client = new net.Socket();
 
-    client.connect(2021, "localhost", function () {
-        console.log('Connected');
-        imageFiles.forEach((imageFile, index) => {
-            const imagePath = path.join(__dirname, '..', 'public/uploads', imageFile.filename).replace(/\\/g, '/');
-            const imageBuffer = fs.readFileSync(imagePath);
-            const base64Image = imageBuffer.toString('base64');
-            const dataToSend = base64Image + `${imageFiles[index].filename}`;
-            client.write(dataToSend);
+        
+        client.connect(2021, "localhost", function () {
+            console.log('Connected');
+            imageFiles.forEach((imageFile, index) => {
+                const imagePath = path.join(__dirname, '..', 'public/uploads', imageFile.filename).replace(/\\/g, '/');
+                const imageBuffer = fs.readFileSync(imagePath);
+                const base64Image = imageBuffer.toString('base64');
+                const dataToSend = base64Image + `${imageFiles[index].filename}`;
+                client.write(dataToSend);
+            });
+            // Gửi dữ liệu 'endTransmission' khi tất cả ảnh đã được gửi
+            client.write('endTransmission');
         });
-    });
+    
 
     // Callback function when data arrives
     client.on('data', function (data) {
@@ -102,7 +106,7 @@ exports.convert = (req, res, next) => {
                     eventEmitter.emit('connectionClosed', response.data);
 
                     // Gọi next() ở đây để chắc chắn rằng tất cả công việc đã hoàn thành trước khi kết thúc middleware
-                    next();
+                    // next();
                 })
                 .catch(error => {
                     console.error('Error fetching new data:', error);
@@ -114,11 +118,14 @@ exports.convert = (req, res, next) => {
    // Sự kiện được kích hoạt khi kết nối đóng
    client.on('close', function () {
     console.log('Connection closed');
+    req.resData = dataToNext;
     // Không cần phải đợi đến khi nhận được dữ liệu mới để thông báo rằng kết nối đã đóng
     // Di chuyển phần này ra khỏi sự kiện 'close'
     console.log('Connection closed');
     eventEmitter.emit('connectionClosed');
-});
+    // Đảm bảo gọi next() sau khi đã xử lý tất cả các công việc
+    next();
+    });
 
     // Đặt biến để kiểm soát việc gửi phản hồi
     let isResponseSent = false;
@@ -137,29 +144,18 @@ exports.convert = (req, res, next) => {
         }
       });
 
-    // Đảm bảo gọi next() sau khi đã xử lý tất cả các công việc
-    next();
+    
+    
+    
 }
 
-//     exports.show = (req, res, next) => {
-//         // console.log('-->', req.resData)
-//         req.resData.forEach(data => {
-//             const userId = req.user.id;
-//             const photo = data.fileName;
-//             const text = data.result;
-//             const upload = Upload.create({
-//                 user: userId,
-//                 photo,
-//                 text
-//             });
-//         });
-// }
 exports.show = (req, res, next) => {
+    console.log("test db", req.resData);
     if (req.resData) {
         req.resData.forEach(data => {
             const userId = req.user.id;
             const photo = data.fileName;
-            const text = data.result;
+            const text = data.fileName;
             const upload = Upload.create({
                 user: userId,
                 photo,

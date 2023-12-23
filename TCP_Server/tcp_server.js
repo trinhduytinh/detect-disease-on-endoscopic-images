@@ -1,5 +1,3 @@
-
-// const multer = require('multer');
 const path = require('path');
 const { spawn } = require('child_process');
 var express = require("express");
@@ -41,27 +39,39 @@ var server = net.createServer(function (socket) {
             }
         }
 
+
     });
+
+    var receivedFileNames = [];
 
     function handleImage(imageData, fileName) {
         if (imageData.length > 0) {
             const filePath = path.join(__dirname, 'uploads', fileName);
             fs.writeFile(filePath, imageData, 'base64', (err) => {
                 if (err) {
-                    console.error(`Error saving the image: ${err}`);
+                    console.error(`Lỗi khi lưu ảnh: ${err}`);
                 } else {
-                    console.log(`Image saved as ${fileName}`);
-                    convert(fileName);
+                    console.log(`Đã lưu ảnh với tên ${fileName}`);
+                    receivedFileNames.push(fileName);
                 }
             });
         }
     }
-   
-    function convert(fileName) {
-        if (fileName !== '') {
-            console.log("File name: ", fileName);
-            const imagePath = path.join(__dirname, 'uploads', fileName).replace(/\\/g, '/');
-            console.log("Image path: ", imagePath);
+
+    socket.on('data', function (data) {
+        // ... (mã nguồn khác)
+        
+        if (data.includes('endTransmission')) {
+            // Khi nhận được dữ liệu 'endTransmission', gọi convert với mảng tên tệp
+            convert(receivedFileNames);
+        }
+    });
+    
+    function convert(receivedFileNames) {
+        if (receivedFileNames.length > 0) {
+            // console.log("File name: ", fileName);
+            // const imagePath = path.join(__dirname, 'uploads', fileName).replace(/\\/g, '/');
+            // console.log("Image path: ", imagePath);
     
             // Điều chỉnh đường dẫn của các tệp và thư mục
             const pythonScriptPath = 'C:/tensorflow1/models/research/object_detection/detect_from_image.py';
@@ -83,20 +93,20 @@ var server = net.createServer(function (socket) {
             });
     
             pythonProcess.on('close', () => {
-                const responseData = { fileName: fileName };
-                // socket.write(`file name: ${fileName} result: ${result}`);
-                socket.write(JSON.stringify(responseData));
-                 // Xóa tất cả các tệp trong thư mục uploads sau khi xử lý thành công
                  fs.readdir(imagePath1, (err, files) => {
                     if (err) throw err;
 
                     for (const file of files) {
                         const filePath = path.join(imagePath1, file);
+                        const fileName = path.basename(filePath);
 
                         // Xóa tệp
                         fs.unlink(filePath, (err) => {
                             if (err) throw err;
-                            console.log(`Deleted file: ${filePath}`);
+                            console.log(`Deleted file: ${fileName}`);
+                            const responseData = { fileName: fileName };
+                            socket.write(JSON.stringify(responseData));
+                            console.log(`Deleted file responseData: ${responseData}`);
                         });
                     }
                 });
